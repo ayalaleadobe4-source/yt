@@ -9,27 +9,37 @@ on:
 jobs:
   download:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # נדרש לפעמים כדי לשמור קבצים
+
     steps:
       # 1. הכנת הסביבה
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. התקנת Python (במקום Node.js, כי yt-dlp הוא כלי פייתון)
+      # 2. התקנת Python
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 3. התקנת הגרסה הכי חדשה של yt-dlp (כולל גרסאות nightly)
+      # 3. התקנת yt-dlp (גרסה עדכנית)
       - name: Install yt-dlp
         run: |
           python -m pip install --upgrade pip
           python -m pip install --upgrade --pre "yt-dlp[default]"
 
-      # 4. יצירת קובץ קוקיז (אם קיים)
+      # 4. יצירת קובץ קוקיז (בצורה שלא גורמת לשגיאה)
       - name: Create cookies file
-        if: ${{ secrets.YOUTUBE_COOKIES != '' }}
-        run: echo "${{ secrets.YOUTUBE_COOKIES }}" > cookies.txt
+        env:
+          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
+        run: |
+          if [ -n "$YOUTUBE_COOKIES" ]; then
+            echo "$YOUTUBE_COOKIES" > cookies.txt
+            echo "Cookies file created."
+          else
+            echo "No cookies secret found. Skipping cookies."
+          fi
 
       # 5. הורדת הסרטון
       - name: Download Video
@@ -42,7 +52,7 @@ jobs:
             CMD="$CMD --cookies cookies.txt"
           fi
           
-          # הרצת ההורדה עם User Agent שמדמה דפדפן רגיל (עוזר למנוע חסימות)
+          # הרצת ההורדה
           $CMD \
           -f "bestvideo+bestaudio/best" \
           --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" \
