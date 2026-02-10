@@ -1,4 +1,4 @@
-name: Video Downloader
+name: Video Downloader Pro
 on:
   workflow_dispatch:
     inputs:
@@ -10,14 +10,39 @@ jobs:
   download:
     runs-on: ubuntu-latest
     steps:
-      - name: Install yt-dlp
-        run: sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && sudo chmod a+rx /usr/local/bin/yt-dlp
-      
-      - name: Download Video
-        run: yt-dlp -f "bestvideo+bestaudio/best" "${{ github.event.inputs.url }}" -o "video.%(ext)s"
+      # 1. הכנת הסביבה (קוד)
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Upload Result
+      # 2. התקנת Node.js לפתרון שגיאת ה-JavaScript
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 3. התקנת הגרסה הכי חדשה של yt-dlp
+      - name: Install yt-dlp
+        run: |
+          sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
+          sudo chmod a+rx /usr/local/bin/yt-dlp
+
+      # 4. יצירת קובץ קוקיז מה-Secret שהגדרת
+      - name: Create cookies file
+        run: echo "${{ secrets.YOUTUBE_COOKIES }}" > cookies.txt
+
+      # 5. הורדת הסרטון עם הקוקיז
+      - name: Download Video
+        run: |
+          yt-dlp --cookies cookies.txt \
+          -f "bestvideo+bestaudio/best" \
+          --no-check-certificate \
+          "${{ github.event.inputs.url }}" \
+          -o "video.%(ext)s"
+
+      # 6. שמירת הסרטון בגיטהאב (Artifacts)
+      - name: Upload Video
         uses: actions/upload-artifact@v4
         with:
-          name: youtube-video
+          name: downloaded-video
           path: video.*
+          retention-days: 1 # נשמר ליום אחד כדי לחסוך מקום
