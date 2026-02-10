@@ -8,43 +8,44 @@ on:
 
 jobs:
   download:
-    # שינוי קריטי: שימוש בגרסה 22.04 במקום latest כדי לתמוך ב-WARP
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-22.04 # נשארים בגרסה היציבה ל-WARP
     
     steps:
       # 1. הכנת הסביבה
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. הפעלת VPN של Cloudflare WARP (עובד מעולה על ubuntu-22.04)
-      - name: Set up WARP
-        uses: fscarmen/warp-on-actions@v1.3
-        with:
-          stack: ipv4
-
-      # 3. התקנת Python
+      # 2. התקנת Python (לפני ה-VPN)
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 4. התקנת FFmpeg (למיזוג וידאו ואודיו)
+      # 3. התקנת FFmpeg (לפני ה-VPN - זה יפתור את השגיאה!)
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
-      # 5. התקנת yt-dlp (גרסת Nightly הכי חדשה)
+      # 4. התקנת yt-dlp (לפני ה-VPN)
       - name: Install yt-dlp
         run: |
           python -m pip install --upgrade pip
           python -m pip install --upgrade --pre "yt-dlp[default]"
 
-      # 6. הורדת הסרטון - דרך ה-VPN עם זהות אנדרואיד
+      # 5. === נקודת המפנה ===
+      # רק עכשיו מפעילים את ה-VPN. כל מה שלפני עבד על רשת רגילה.
+      # כל מה שאחרי יעבוד על רשת מוסווית.
+      - name: Set up WARP
+        uses: fscarmen/warp-on-actions@v1.3
+        with:
+          stack: ipv4
+
+      # 6. בדיקה שה-VPN שינה את הכתובת (לצורך וידוא בלוגים)
+      - name: Check IP
+        run: curl -s https://www.cloudflare.com/cdn-cgi/trace | grep ip
+
+      # 7. הורדת הסרטון (דרך ה-VPN)
       - name: Download Video
         run: |
-          # בודקים שה-VPN עובד (אופציונלי, רק ללוג)
-          curl -s https://www.cloudflare.com/cdn-cgi/trace | grep ip
-          
-          # הפקודה להורדה: ללא קוקיז, דרך VPN, בזהות אנדרואיד
           yt-dlp --verbose --no-check-certificate \
           --extractor-args "youtube:player_client=android" \
           -f "bestvideo+bestaudio/best" \
@@ -52,7 +53,7 @@ jobs:
           "${{ github.event.inputs.url }}" \
           -o "video.%(ext)s"
 
-      # 7. שמירת הסרטון
+      # 8. שמירת הסרטון
       - name: Upload Video
         uses: actions/upload-artifact@v4
         with:
