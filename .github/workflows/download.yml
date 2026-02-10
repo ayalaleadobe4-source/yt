@@ -1,4 +1,4 @@
-name: Video Downloader Android Bypass
+name: Video Downloader Pro
 on:
   workflow_dispatch:
     inputs:
@@ -10,31 +10,49 @@ jobs:
   download:
     runs-on: ubuntu-latest
     steps:
+      # 1. הכנת הסביבה
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      # 2. התקנת Python (במקום Node.js, כי yt-dlp הוא כלי פייתון)
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          node-version: '20'
+          python-version: '3.11'
 
+      # 3. התקנת הגרסה הכי חדשה של yt-dlp (כולל גרסאות nightly)
       - name: Install yt-dlp
         run: |
-          sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
-          sudo chmod a+rx /usr/local/bin/yt-dlp
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade --pre "yt-dlp[default]"
 
+      # 4. יצירת קובץ קוקיז (אם קיים)
+      - name: Create cookies file
+        if: ${{ secrets.YOUTUBE_COOKIES != '' }}
+        run: echo "${{ secrets.YOUTUBE_COOKIES }}" > cookies.txt
+
+      # 5. הורדת הסרטון
       - name: Download Video
         run: |
-          # שימוש בלקוח אנדרואיד שעוקף את רוב החסימות בשרתים
-          yt-dlp \
-          --no-check-certificate \
-          --extractor-args "youtube:player-client=android,web;player-params=sig,n" \
-          -f "best" \
+          # בניית הפקודה הבסיסית
+          CMD="yt-dlp --no-check-certificate"
+          
+          # הוספת קוקיז רק אם הקובץ קיים
+          if [ -f cookies.txt ]; then
+            CMD="$CMD --cookies cookies.txt"
+          fi
+          
+          # הרצת ההורדה עם User Agent שמדמה דפדפן רגיל (עוזר למנוע חסימות)
+          $CMD \
+          -f "bestvideo+bestaudio/best" \
+          --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" \
           "${{ github.event.inputs.url }}" \
           -o "video.%(ext)s"
 
+      # 6. שמירת הסרטון
       - name: Upload Video
         uses: actions/upload-artifact@v4
         with:
           name: downloaded-video
           path: video.*
+          retention-days: 1
