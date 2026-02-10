@@ -1,0 +1,23 @@
+name: Video Downloader
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'YouTube URL'
+        required: true
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install yt-dlp
+        run: sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && sudo chmod a+rx /usr/local/bin/yt-dlp
+      
+      - name: Download Video
+        run: yt-dlp -f "bestvideo+bestaudio/best" "${{ github.event.inputs.url }}" -o "video.%(ext)s"
+
+      - name: Upload Result
+        uses: actions/upload-artifact@v4
+        with:
+          name: youtube-video
+          path: video.*
