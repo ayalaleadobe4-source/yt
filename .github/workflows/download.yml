@@ -1,4 +1,4 @@
-name: Video Downloader Final Fix
+name: Video Downloader Android Bypass
 on:
   workflow_dispatch:
     inputs:
@@ -18,25 +18,18 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install yt-dlp and Plugins
+      - name: Install yt-dlp
         run: |
-          # התקנת yt-dlp
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
-          # התקנת פלאגין לפתרון ה-n-challenge (אופציונלי אך מומלץ)
-          pip install -U phantomjs
-
-      - name: Create cookies file
-        run: echo "${{ secrets.YOUTUBE_COOKIES }}" > cookies.txt
 
       - name: Download Video
         run: |
-          # נסיון הורדה עם הגדרות עקיפה מתקדמות
-          yt-dlp --cookies cookies.txt \
-          --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
-          -f "best[ext=mp4]/best" \
+          # שימוש בלקוח אנדרואיד שעוקף את רוב החסימות בשרתים
+          yt-dlp \
           --no-check-certificate \
-          --extractor-args "youtube:player-client=web,ios" \
+          --extractor-args "youtube:player-client=android,web;player-params=sig,n" \
+          -f "best" \
           "${{ github.event.inputs.url }}" \
           -o "video.%(ext)s"
 
