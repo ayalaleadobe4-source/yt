@@ -30,20 +30,39 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --upgrade --pre "yt-dlp[default]"
 
-      # 5. הורדת הסרטון - מצב אנדרואיד ללא קוקיז
+      # 5. יצירת קובץ קוקיז (חובה כדי לעבור את מסך ה"בוט")
+      - name: Create cookies file
+        env:
+          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
+        run: |
+          if [ -n "$YOUTUBE_COOKIES" ]; then
+            echo "$YOUTUBE_COOKIES" > cookies.txt
+            echo "Cookies file created successfully."
+          else
+            echo "WARNING: No cookies found! This will likely fail."
+          fi
+
+      # 6. הורדת הסרטון - מצב iOS עם קוקיז
       - name: Download Video
         run: |
-          # אנו משתמשים בלקוח אנדרואיד שעוקף חסימות שרתים
-          # ומסירים את השימוש בקוקיז שגורם לביטול מצב אנדרואיד
+          CMD="yt-dlp --verbose --no-check-certificate"
           
-          yt-dlp --verbose --no-check-certificate \
-          --extractor-args "youtube:player_client=android" \
+          # שימוש בקוקיז אם קיימים
+          if [ -f cookies.txt ]; then
+            CMD="$CMD --cookies cookies.txt"
+          fi
+          
+          # שינוי הלקוח ל-iOS (תומך בקוקיז ועוקף חסימות מסוימות)
+          # והוספת User Agent שמחקה דפדפן נייד
+          $CMD \
+          --extractor-args "youtube:player_client=ios" \
+          --user-agent "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1" \
           -f "bestvideo+bestaudio/best" \
           --merge-output-format mp4 \
           "${{ github.event.inputs.url }}" \
           -o "video.%(ext)s"
 
-      # 6. שמירת הסרטון
+      # 7. שמירת הסרטון
       - name: Upload Video
         uses: actions/upload-artifact@v4
         with:
