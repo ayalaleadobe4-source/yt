@@ -14,49 +14,38 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. התקנת Python
+      # 2. שלב הקסם: הפעלת VPN של Cloudflare WARP
+      # זה משנה את ה-IP של השרת ל-IP "נקי" שיוטיוב לא חוסם
+      - name: Set up WARP
+        uses: fscarmen/warp-on-actions@v1.3
+        with:
+          stack: ipv4 # מכריח שימוש ב-IPv4 שנתמך טוב יותר
+
+      # 3. התקנת Python
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 3. התקנת FFmpeg (חובה למיזוג וידאו ואודיו)
+      # 4. התקנת FFmpeg
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
-      # 4. התקנת yt-dlp (גרסת Nightly הכי חדשה)
+      # 5. התקנת yt-dlp (גרסת Nightly)
       - name: Install yt-dlp
         run: |
           python -m pip install --upgrade pip
           python -m pip install --upgrade --pre "yt-dlp[default]"
 
-      # 5. יצירת קובץ קוקיז (חובה כדי לעבור את מסך ה"בוט")
-      - name: Create cookies file
-        env:
-          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
-        run: |
-          if [ -n "$YOUTUBE_COOKIES" ]; then
-            echo "$YOUTUBE_COOKIES" > cookies.txt
-            echo "Cookies file created successfully."
-          else
-            echo "WARNING: No cookies found! This will likely fail."
-          fi
-
-      # 6. הורדת הסרטון - מצב iOS עם קוקיז
+      # 6. הורדת הסרטון - IP נקי + לקוח אנדרואיד
       - name: Download Video
         run: |
-          CMD="yt-dlp --verbose --no-check-certificate"
+          # עכשיו כשאנחנו מאחורי VPN, אפשר להשתמש בלקוח אנדרואיד בלי קוקיז
+          # ולקבל מהירות מלאה ללא חסימות
           
-          # שימוש בקוקיז אם קיימים
-          if [ -f cookies.txt ]; then
-            CMD="$CMD --cookies cookies.txt"
-          fi
-          
-          # שינוי הלקוח ל-iOS (תומך בקוקיז ועוקף חסימות מסוימות)
-          # והוספת User Agent שמחקה דפדפן נייד
-          $CMD \
-          --extractor-args "youtube:player_client=ios" \
-          --user-agent "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1" \
+          yt-dlp --verbose --no-check-certificate \
+          --extractor-args "youtube:player_client=android" \
+          --downloader axel --downloader-args "axel:-n 4" \
           -f "bestvideo+bestaudio/best" \
           --merge-output-format mp4 \
           "${{ github.event.inputs.url }}" \
