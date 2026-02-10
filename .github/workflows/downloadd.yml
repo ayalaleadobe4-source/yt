@@ -1,0 +1,58 @@
+name: Video Downloader Pro
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'YouTube URL'
+        required: true
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. הכנת הסביבה
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. התקנת Python (במקום Node.js, כי yt-dlp הוא כלי פייתון)
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 3. התקנת הגרסה הכי חדשה של yt-dlp (כולל גרסאות nightly)
+      - name: Install yt-dlp
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade --pre "yt-dlp[default]"
+
+      # 4. יצירת קובץ קוקיז (אם קיים)
+      - name: Create cookies file
+        if: ${{ secrets.YOUTUBE_COOKIES != '' }}
+        run: echo "${{ secrets.YOUTUBE_COOKIES }}" > cookies.txt
+
+      # 5. הורדת הסרטון
+      - name: Download Video
+        run: |
+          # בניית הפקודה הבסיסית
+          CMD="yt-dlp --no-check-certificate"
+          
+          # הוספת קוקיז רק אם הקובץ קיים
+          if [ -f cookies.txt ]; then
+            CMD="$CMD --cookies cookies.txt"
+          fi
+          
+          # הרצת ההורדה עם User Agent שמדמה דפדפן רגיל (עוזר למנוע חסימות)
+          $CMD \
+          -f "bestvideo+bestaudio/best" \
+          --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" \
+          "${{ github.event.inputs.url }}" \
+          -o "video.%(ext)s"
+
+      # 6. שמירת הסרטון
+      - name: Upload Video
+        uses: actions/upload-artifact@v4
+        with:
+          name: downloaded-video
+          path: video.*
+          retention-days: 1
